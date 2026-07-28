@@ -20,18 +20,25 @@ function App() {
   const [equipmentImage, setEquipmentImage] = useState(null);
   const [equipmentResponse, setEquipmentResponse] = useState('');
   
-  // 3. 운동 기록 및 통계 상태 (로컬 스토리지 연동으로 안전하게 유지)
+  // 3. 운동 기록 상태 (로컬 스토리지 연동)
   const [historyList, setHistoryList] = useState(() => {
     try {
-      const saved = localStorage.getItem('workout_history');
-      return saved ? JSON.parse(saved) : [];
+      const saved = localStorage.getItem('workout_history_v3');
+      return saved ? JSON.parse(saved) : [
+        { date: '2026-06-01', weight: 72.0, muscle: 31.5, part: '가슴', volume: 2500 },
+        { date: '2026-06-03', weight: 71.8, muscle: 31.8, part: '등', volume: 3000 },
+        { date: '2026-06-05', weight: 71.5, muscle: 32.0, part: '하체', volume: 4200 },
+      ];
     } catch {
       return [];
     }
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [inputDate, setInputDate] = useState(todayStr);
   const [inputWeight, setInputWeight] = useState('');
   const [inputMuscle, setInputMuscle] = useState('');
+  const [inputVolume, setInputVolume] = useState('');
   const [inputPart, setInputPart] = useState('가슴');
 
   const [loading, setLoading] = useState(false);
@@ -39,33 +46,49 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('workout_history', JSON.stringify(historyList));
+      localStorage.setItem('workout_history_v3', JSON.stringify(historyList));
     } catch (e) {
       console.error(e);
     }
   }, [historyList]);
 
-  // 운동 기록 추가 핸들러
-  const handleAddRecord = (e) => {
+  // 기록 저장 및 수정
+  const handleSaveRecord = (e) => {
     e.preventDefault();
     if (!inputWeight || !inputMuscle) {
-      alert('체중과 근육량을 입력해주세요.');
+      alert('체중과 근육량은 필수 입력 항목입니다.');
       return;
     }
 
-    const todayDate = new Date().toISOString().split('T')[0];
-    const newRecord = {
-      id: Date.now(),
-      date: todayDate,
-      part: inputPart,
-      weight: parseFloat(inputWeight),
-      muscle: parseFloat(inputMuscle),
-    };
+    const numericWeight = parseFloat(inputWeight);
+    const numericMuscle = parseFloat(inputMuscle);
+    const numericVolume = inputVolume ? parseFloat(inputVolume) : 0;
 
-    setHistoryList([newRecord, ...historyList]);
-    setInputWeight('');
-    setInputMuscle('');
-    alert('오늘의 운동 기록이 저장되었습니다!');
+    setHistoryList((prevList) => {
+      const existingIndex = prevList.findIndex(item => item.date === inputDate);
+      if (existingIndex >= 0) {
+        const updated = [...prevList];
+        updated[existingIndex] = {
+          date: inputDate,
+          weight: numericWeight,
+          muscle: numericMuscle,
+          volume: numericVolume,
+          part: inputPart
+        };
+        return updated.sort((a, b) => new Date(a.date) - new Date(b.date));
+      } else {
+        const newItem = {
+          date: inputDate,
+          weight: numericWeight,
+          muscle: numericMuscle,
+          volume: numericVolume,
+          part: inputPart
+        };
+        return [...prevList, newItem].sort((a, b) => new Date(a.date) - new Date(b.date));
+      }
+    });
+
+    alert(`${inputDate} 자 기록이 저장되었습니다!`);
   };
 
   const handleRoutineSubmit = async (e) => {
@@ -135,36 +158,16 @@ function App() {
     }
   };
 
-  // 최근 체중 및 근육량 추이 계산
-  const latestRecord = historyList.length > 0 ? historyList[0] : null;
-
   return (
     <div className="container">
       <h2>🏋️ AI 스마트 피트니스 코치</h2>
       
-      {/* 탭 메뉴 */}
       <div className="tab-menu">
-        <button 
-          className={activeTab === 'routine' ? 'active' : ''} 
-          onClick={() => setActiveTab('routine')}
-        >
-          맞춤 루틴
-        </button>
-        <button 
-          className={activeTab === 'equipment' ? 'active' : ''} 
-          onClick={() => setActiveTab('equipment')}
-        >
-          기구 인식
-        </button>
-        <button 
-          className={activeTab === 'record' ? 'active' : ''} 
-          onClick={() => setActiveTab('record')}
-        >
-          운동 기록 & 추이
-        </button>
+        <button className={activeTab === 'routine' ? 'active' : ''} onClick={() => setActiveTab('routine')}>맞춤 루틴</button>
+        <button className={activeTab === 'equipment' ? 'active' : ''} onClick={() => setActiveTab('equipment')}>기구 인식</button>
+        <button className={activeTab === 'record' ? 'active' : ''} onClick={() => setActiveTab('record')}>캘린더 & 추이</button>
       </div>
 
-      {/* 탭 1: 맞춤 운동 추천 */}
       {activeTab === 'routine' && (
         <form onSubmit={handleRoutineSubmit} className="form-box">
           <h3>신체 정보 및 목표 설정</h3>
@@ -226,24 +229,13 @@ function App() {
         </div>
       )}
 
-      {/* 탭 2: 기구 인식 */}
       {activeTab === 'equipment' && (
         <div className="form-box">
           <h3>📸 헬스장 기구 촬영 및 업로드</h3>
           <p className="desc">기구 사진을 촬영하거나 업로드하여 올바른 사용법을 확인하세요.</p>
           
-          <input 
-            type="file" 
-            accept="image/*" 
-            capture="environment" 
-            ref={fileInputRef} 
-            onChange={handleImageChange} 
-            style={{ display: 'none' }}
-          />
-
-          <button type="button" onClick={() => fileInputRef.current.click()} className="cam-btn">
-            📷 기구 사진 찍기 / 업로드하기
-          </button>
+          <input type="file" accept="image/*" capture="environment" ref={fileInputRef} onChange={handleImageChange} style={{ display: 'none' }} />
+          <button type="button" onClick={() => fileInputRef.current.click()} className="cam-btn">📷 기구 사진 찍기 / 업로드하기</button>
 
           {equipmentImage && (
             <div className="preview-container">
@@ -263,13 +255,18 @@ function App() {
         </div>
       )}
 
-      {/* 탭 3: 운동 기록 및 체중/근육량 추이 (캘린더 대체 리스트 및 대시보드) */}
+      {/* 캘린더 선택 및 순수 HTML 기반 꺾은선 시각화 카드 */}
       {activeTab === 'record' && (
         <div className="form-box">
-          <h3>📈 나의 체성분 및 운동 부위 기록</h3>
-          <p className="desc">오늘 운동한 부위와 현재 체중, 골격근량 기록을 남겨 변화 추이를 확인하세요.</p>
+          <h3>📅 날짜 선택 및 운동·체성분 기록</h3>
+          <p className="desc">날짜를 지정해 과거/미래 기록을 추가하거나 수정할 수 있습니다.</p>
           
-          <form onSubmit={handleAddRecord} style={{display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px'}}>
+          <form onSubmit={handleSaveRecord} style={{display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px'}}>
+            <div>
+              <label className="desc" style={{display: 'block', marginBottom: '4px'}}>날짜 선택</label>
+              <input type="date" value={inputDate} onChange={(e) => setInputDate(e.target.value)} style={{colorScheme: 'dark'}} />
+            </div>
+
             <div className="input-group">
               <div style={{flex: 1}}>
                 <label className="desc" style={{display: 'block', marginBottom: '4px'}}>체중 (kg)</label>
@@ -281,63 +278,47 @@ function App() {
               </div>
             </div>
 
-            <div>
-              <label className="desc" style={{display: 'block', marginBottom: '4px'}}>오늘 주요 운동 부위</label>
-              <select value={inputPart} onChange={(e) => setInputPart(e.target.value)}>
-                <option value="가슴">가슴</option>
-                <option value="등">등</option>
-                <option value="어깨">어깨</option>
-                <option value="삼두">삼두</option>
-                <option value="이두">이두</option>
-                <option value="전완근">전완근</option>
-                <option value="하체">하체</option>
-                <option value="코어">코어</option>
-              </select>
+            <div className="input-group">
+              <div style={{flex: 1}}>
+                <label className="desc" style={{display: 'block', marginBottom: '4px'}}>운동 부위</label>
+                <select value={inputPart} onChange={(e) => setInputPart(e.target.value)}>
+                  <option value="가슴">가슴</option>
+                  <option value="등">등</option>
+                  <option value="어깨">어깨</option>
+                  <option value="삼두">삼두</option>
+                  <option value="이두">이두</option>
+                  <option value="전완근">전완근</option>
+                  <option value="하체">하체</option>
+                  <option value="코어">코어</option>
+                </select>
+              </div>
+              <div style={{flex: 1}}>
+                <label className="desc" style={{display: 'block', marginBottom: '4px'}}>총 운동량 (볼륨 kg)</label>
+                <input type="number" placeholder="예: 3500" value={inputVolume} onChange={(e) => setInputVolume(e.target.value)} />
+              </div>
             </div>
 
-            <button type="submit" className="action-btn">오늘의 기록 저장하기</button>
+            <button type="submit" className="action-btn">선택한 날짜 기록 저장 / 수정</button>
           </form>
 
-          {/* 요약 통계 카드 */}
-          {latestRecord && (
-            <div className="record-card" style={{marginTop: '16px'}}>
-              <h3>📊 최근 측정 데이터 요약</h3>
-              <div className="stats-grid">
-                <div className="stat-box">
-                  <div className="stat-label">최근 체중</div>
-                  <div className="stat-value">{latestRecord.weight} kg</div>
-                </div>
-                <div className="stat-box">
-                  <div className="stat-label">최근 근육량</div>
-                  <div className="stat-value">{latestRecord.muscle} kg</div>
-                </div>
-                <div className="stat-box">
-                  <div className="stat-label">기록 횟수</div>
-                  <div className="stat-value">{historyList.length} 회</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="record-card">
-            <h3>📅 캘린더 및 운동 수행 히스토리</h3>
-            {historyList.length === 0 ? (
-              <p className="desc" style={{textAlign: 'center', padding: '20px 0'}}>아직 저장된 기록이 없습니다. 위에서 기록을 추가해 보세요!</p>
-            ) : (
-              <div className="history-list">
-                {historyList.map((item) => (
-                  <div key={item.id} className="history-item">
-                    <div>
-                      <strong style={{color: '#38bdf8'}}>{item.date}</strong>
-                      <span style={{marginLeft: '10px', background: '#334155', padding: '2px 6px', borderRadius: '4px', fontSize: '11px'}}>{item.part}</span>
-                    </div>
-                    <div style={{color: '#94a3b8', fontSize: '12px'}}>
-                      체중: <strong style={{color: '#f8fafc'}}>{item.weight}kg</strong> / 근육량: <strong style={{color: '#f8fafc'}}>{item.muscle}kg</strong>
-                    </div>
+          {/* 순수 UI 꺾은선 대체 바 그래프 추이 대시보드 */}
+          <div className="record-card" style={{marginTop: '20px'}}>
+            <h3>📈 날짜별 체중 및 근육량 변화 추이</h3>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px'}}>
+              {historyList.map((item) => (
+                <div key={item.date} style={{background: '#1e293b', padding: '10px', borderRadius: '8px', border: '1px solid #334155'}}>
+                  <div style={{display: 'flex', justifyContent: 'between', fontSize: '13px', marginBottom: '6px'}}>
+                    <span style={{color: '#38bdf8', fontWeight: 'bold'}}>{item.date} ({item.part})</span>
+                    <span style={{color: '#94a3b8'}}>체중: {item.weight}kg | 근육: {item.muscle}kg | 운동량: {item.volume || 0}kg</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  {/* 시각적 바 형태 표현 */}
+                  <div style={{display: 'flex', height: '8px', background: '#0f172a', borderRadius: '4px', overflow: 'hidden'}}>
+                    <div style={{width: `${Math.min(item.weight, 100)}%`, background: '#38bdf8'}} title="체중"></div>
+                    <div style={{width: `${Math.min(item.muscle * 2, 100)}%`, background: '#4ade80'}} title="근육량"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
