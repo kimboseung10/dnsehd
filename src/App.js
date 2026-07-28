@@ -12,14 +12,14 @@ function App() {
   const [equipmentImage, setEquipmentImage] = useState(null);
   const [equipmentResponse, setEquipmentResponse] = useState('');
   
-  // 운동 기록 상태 (체중, 근육량, 체지방률)
+  // 운동 기록 상태 (2026~2028년 데이터 관리)
   const [historyList, setHistoryList] = useState(() => {
     try {
-      const saved = localStorage.getItem('workout_history_v5');
+      const saved = localStorage.getItem('workout_history_v6');
       return saved ? JSON.parse(saved) : [
         { date: '2026-06-01', weight: 72.0, muscle: 31.5, fat: 18.5, part: '가슴' },
-        { date: '2026-06-03', weight: 71.8, muscle: 31.8, fat: 18.0, part: '등' },
-        { date: '2026-06-05', weight: 71.5, muscle: 32.0, fat: 17.5, part: '하체' },
+        { date: '2026-06-15', weight: 71.8, muscle: 31.8, fat: 18.0, part: '등' },
+        { date: '2026-07-02', weight: 71.2, muscle: 32.1, fat: 17.2, part: '하체' },
       ];
     } catch {
       return [];
@@ -33,18 +33,36 @@ function App() {
   const [inputFat, setInputFat] = useState('');
   const [inputPart, setInputPart] = useState('가슴');
 
+  // 캘린더 표시 기준 연도/월 상태 (초기값: 오늘 날짜 기준)
+  const [currentDateObj, setCurrentDateObj] = useState(new Date());
+  const viewYear = currentDateObj.getFullYear();
+  const viewMonth = currentDateObj.getMonth(); // 0~11
+
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     try {
-      localStorage.setItem('workout_history_v5', JSON.stringify(historyList));
+      localStorage.setItem('workout_history_v6', JSON.stringify(historyList));
     } catch (e) {
       console.error(e);
     }
   }, [historyList]);
 
-  // 달력에서 특정 날짜를 클릭했을 때 입력폼에 해당 데이터 불러오기
+  // 월 이동 핸들러 (2026년 1월 ~ 2028년 1월 제한)
+  const handlePrevMonth = () => {
+    const newDate = new Date(viewYear, viewMonth - 1, 1);
+    if (newDate.getFullYear() < 2026 || (newDate.getFullYear() === 2026 && newDate.getMonth() < 0)) return;
+    setCurrentDateObj(newDate);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(viewYear, viewMonth + 1, 1);
+    if (newDate.getFullYear() > 2028 || (newDate.getFullYear() === 2028 && newDate.getMonth() > 0)) return;
+    setCurrentDateObj(newDate);
+  };
+
+  // 날짜 선택 시 폼에 데이터 연동
   const handleSelectDate = (dateString) => {
     setInputDate(dateString);
     const found = historyList.find(item => item.date === dateString);
@@ -138,38 +156,41 @@ function App() {
     }
   };
 
-  // SVG 꺾은선 좌표 계산
-  const renderPolylinePoints = (dataKey, minVal, maxVal) => {
+  // 현재 선택된 '해당 월(Month)'의 데이터만 필터링하여 한 달용 꺾은선 그래프 데이터 생성
+  const monthString = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+  const currentMonthRecords = historyList
+    .filter(item => item.date.startsWith(monthString))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // 해당 월의 꺾은선 좌표 계산 (가로축: 날짜 순서, 세로축: 값)
+  const renderMonthPolylinePoints = (dataKey, minVal, maxVal) => {
     const width = 300;
     const height = 120;
-    if (historyList.length === 0) return "";
+    if (currentMonthRecords.length === 0) return "";
     const range = maxVal - minVal || 1;
-    return historyList.map((item, index) => {
-      const x = (index / (Math.max(historyList.length - 1, 1))) * (width - 40) + 20;
+    return currentMonthRecords.map((item, index) => {
+      const x = (index / (Math.max(currentMonthRecords.length - 1, 1))) * (width - 40) + 20;
       const val = item[dataKey] || 0;
       const y = height - 20 - ((val - minVal) / range) * (height - 40);
       return `${x},${y}`;
     }).join(" ");
   };
 
-  // 현재 월(2026년 6월 기준 예시 혹은 이번 달) 달력 생성 로직
-  const [currentYearMonth] = useState({ year: 2026, month: 5 }); // 5는 6월 (0부터 시작)
-  const daysInMonth = new Date(currentYearMonth.year, currentYearMonth.month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(currentYearMonth.year, currentYearMonth.month, 1).getDay();
+  // 달력 날짜 배열 계산
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
 
-  // 달력 날짜 배열 만들기
   const calendarDays = [];
   for (let i = 0; i < firstDayOfWeek; i++) {
-    calendarDays.push(null); // 빈 칸
+    calendarDays.push(null);
   }
   for (let day = 1; day <= daysInMonth; day++) {
-    const monthStr = String(currentYearMonth.month + 1).padStart(2, '0');
+    const monthStr = String(viewMonth + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
-    const dateStr = `${currentYearMonth.year}-${monthStr}-${dayStr}`;
+    const dateStr = `${viewYear}-${monthStr}-${dayStr}`;
     calendarDays.push(dateStr);
   }
 
-  // 선택한 날짜의 상세 기록 찾기
   const selectedRecord = historyList.find(item => item.date === inputDate);
 
   return (
@@ -196,10 +217,14 @@ function App() {
               <option value="근비대">근비대</option>
             </select>
             <select value={bodyInfo.targetPart} onChange={(e) => setBodyInfo({...bodyInfo, targetPart: e.target.value})}>
+              <option value="어깨">어깨</option>
               <option value="가슴">가슴</option>
               <option value="등">등</option>
+              <option value="복근">복근</option>
+              <option value="이두">이두</option>
+              <option value="삼두">삼두</option>
+              <option value="전완근">전완근</option>
               <option value="하체">하체</option>
-              <option value="어깨">어깨</option>
             </select>
           </div>
           <button type="submit" disabled={loading}>{loading ? '분석 중...' : '맞춤 루틴 받기'}</button>
@@ -234,15 +259,20 @@ function App() {
         </div>
       )}
 
-      {/* 캘린더 및 꺾은선 그래프 탭 */}
+      {/* 캘린더 및 한 달용 꺾은선 그래프 탭 */}
       {activeTab === 'record' && (
         <div className="form-box">
-          <h3>📅 인터랙티브 캘린더</h3>
-          <p className="desc">달력의 날짜를 클릭하면 해당 날짜의 기록을 확인하거나 수정할 수 있습니다.</p>
+          <h3>📅 인터랙티브 캘린더 (2026 ~ 2028)</h3>
+          <p className="desc">화살표를 눌러 월을 변경하고 날짜를 클릭해 기록을 확인·수정하세요.</p>
           
-          {/* 달력 UI 컴포넌트 */}
+          {/* 캘린더 UI 컴포넌트 (화살표 네비게이션 포함) */}
           <div style={{background: '#0f172a', padding: '12px', borderRadius: '12px', border: '1px solid #334155'}}>
-            <div style={{textAlign: 'center', fontWeight: 'bold', marginBottom: '8px', color: '#38bdf8'}}>2026년 6월</div>
+            <div className="calendar-header-nav">
+              <button className="month-nav-btn" onClick={handlePrevMonth}>◀ 이전달</button>
+              <span style={{fontWeight: 'bold', fontSize: '15px', color: '#38bdf8'}}>{viewYear}년 {viewMonth + 1}월</span>
+              <button className="month-nav-btn" onClick={handleNextMonth}>다음달 ▶</button>
+            </div>
+
             <div className="calendar-grid">
               {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
                 <div key={i} className="calendar-day-header">{d}</div>
@@ -271,7 +301,7 @@ function App() {
           <form onSubmit={handleSaveRecord} style={{display: 'flex', flexDirection: 'column', gap: '10px', background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155', marginTop: '10px'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
               <span style={{color: '#38bdf8', fontWeight: 'bold'}}>선택된 날짜: {inputDate}</span>
-              <input type="date" value={inputDate} onChange={(e) => handleSelectDate(e.target.value)} style={{width: '130px', padding: '4px', colorScheme: 'dark'}} />
+              <input type="date" value={inputDate} min="2026-01-01" max="2028-01-31" onChange={(e) => handleSelectDate(e.target.value)} style={{width: '140px', padding: '4px', colorScheme: 'dark'}} />
             </div>
 
             <div className="input-group">
@@ -282,48 +312,65 @@ function App() {
             <div className="input-group">
               <input type="number" step="0.1" placeholder="체지방률 (%)" value={inputFat} onChange={(e) => setInputFat(e.target.value)} />
               <select value={inputPart} onChange={(e) => setInputPart(e.target.value)}>
+                <option value="어깨">어깨</option>
                 <option value="가슴">가슴</option>
                 <option value="등">등</option>
+                <option value="복근">복근</option>
+                <option value="이두">이두</option>
+                <option value="삼두">삼두</option>
+                <option value="전완근">전완근</option>
                 <option value="하체">하체</option>
-                <option value="어깨">어깨</option>
-                <option value="유산소">유산소</option>
               </select>
             </div>
 
             <button type="submit" className="action-btn">선택한 날짜 기록 저장 / 수정하기</button>
           </form>
 
-          {/* 꺾은선 그래프 1: 체중 & 근육량 */}
+          {/* 한 달용 체중 & 근육량 꺾은선 그래프 (세로축: kg, 가로축: 해당 월 날짜 순서) */}
           <div className="record-card">
-            <h4 style={{margin: '0 0 10px 0', color: '#38bdf8'}}>📈 체중 & 근육량 변화 추이</h4>
+            <h4 style={{margin: '0 0 4px 0', color: '#38bdf8'}}>📈 {viewYear}년 {viewMonth + 1}월 체중 & 근육량 (kg)</h4>
+            <p className="desc" style={{marginBottom: '10px'}}>세로축: 킬로그램(kg) / 가로축: 날짜 순서</p>
             <div style={{background: '#020617', borderRadius: '8px', padding: '10px', textAlign: 'center'}}>
-              <svg viewBox="0 0 300 120" style={{width: '100%', height: '140px', overflow: 'visible'}}>
-                <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" strokeWidth="1" />
-                <line x1="0" y1="70" x2="300" y2="70" stroke="#1e293b" strokeWidth="1" />
-                <line x1="0" y1="120" x2="300" y2="120" stroke="#1e293b" strokeWidth="1" />
-                
-                <polyline fill="none" stroke="#38bdf8" strokeWidth="2.5" points={renderPolylinePoints('weight', 50, 100)} />
-                <polyline fill="none" stroke="#4ade80" strokeWidth="2.5" points={renderPolylinePoints('muscle', 20, 50)} />
-              </svg>
-              <div style={{display: 'flex', justifyContent: 'center', gap: '20px', fontSize: '12px', marginTop: '8px'}}>
-                <span style={{color: '#38bdf8'}}>■ 체중(kg)</span>
-                <span style={{color: '#4ade80'}}>■ 근육량(kg)</span>
-              </div>
+              {currentMonthRecords.length === 0 ? (
+                <p className="desc" style={{padding: '20px 0'}}>이번 달에 기록된 데이터가 없습니다.</p>
+              ) : (
+                <>
+                  <svg viewBox="0 0 300 120" style={{width: '100%', height: '140px', overflow: 'visible'}}>
+                    <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" strokeWidth="1" />
+                    <line x1="0" y1="70" x2="300" y2="70" stroke="#1e293b" strokeWidth="1" />
+                    <line x1="0" y1="120" x2="300" y2="120" stroke="#1e293b" strokeWidth="1" />
+                    
+                    <polyline fill="none" stroke="#38bdf8" strokeWidth="2.5" points={renderMonthPolylinePoints('weight', 40, 120)} />
+                    <polyline fill="none" stroke="#4ade80" strokeWidth="2.5" points={renderMonthPolylinePoints('muscle', 20, 60)} />
+                  </svg>
+                  <div style={{display: 'flex', justifyContent: 'center', gap: '20px', fontSize: '12px', marginTop: '8px'}}>
+                    <span style={{color: '#38bdf8'}}>■ 체중(kg)</span>
+                    <span style={{color: '#4ade80'}}>■ 근육량(kg)</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* 꺾은선 그래프 2: 체지방률 */}
+          {/* 한 달용 체지방률 꺾은선 그래프 (세로축: %, 가로축: 날짜) */}
           <div className="record-card">
-            <h4 style={{margin: '0 0 10px 0', color: '#f43f5e'}}>📊 체지방률(%) 변화 추이</h4>
+            <h4 style={{margin: '0 0 4px 0', color: '#f43f5e'}}>📊 {viewYear}년 {viewMonth + 1}월 체지방률 (%)</h4>
+            <p className="desc" style={{marginBottom: '10px'}}>세로축: 백분율(%) / 가로축: 날짜 순서</p>
             <div style={{background: '#020617', borderRadius: '8px', padding: '10px', textAlign: 'center'}}>
-              <svg viewBox="0 0 300 120" style={{width: '100%', height: '140px', overflow: 'visible'}}>
-                <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" strokeWidth="1" />
-                <line x1="0" y1="70" x2="300" y2="70" stroke="#1e293b" strokeWidth="1" />
-                <line x1="0" y1="120" x2="300" y2="120" stroke="#1e293b" strokeWidth="1" />
-                
-                <polyline fill="none" stroke="#f43f5e" strokeWidth="2.5" points={renderPolylinePoints('fat', 5, 40)} />
-              </svg>
-              <div style={{fontSize: '12px', color: '#f43f5e', marginTop: '8px'}}>■ 체지방률(%) 추이</div>
+              {currentMonthRecords.length === 0 ? (
+                <p className="desc" style={{padding: '20px 0'}}>이번 달에 기록된 데이터가 없습니다.</p>
+              ) : (
+                <>
+                  <svg viewBox="0 0 300 120" style={{width: '100%', height: '140px', overflow: 'visible'}}>
+                    <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" strokeWidth="1" />
+                    <line x1="0" y1="70" x2="300" y2="70" stroke="#1e293b" strokeWidth="1" />
+                    <line x1="0" y1="120" x2="300" y2="120" stroke="#1e293b" strokeWidth="1" />
+                    
+                    <polyline fill="none" stroke="#f43f5e" strokeWidth="2.5" points={renderMonthPolylinePoints('fat', 5, 40)} />
+                  </svg>
+                  <div style={{fontSize: '12px', color: '#f43f5e', marginTop: '8px'}}>■ 체지방률(%) 추이</div>
+                </>
+              )}
             </div>
           </div>
 
