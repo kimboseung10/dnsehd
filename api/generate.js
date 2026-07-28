@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // 정확한 모델명 사용
+      model: 'gemini-3.1-flash-lite', // 정확한 모델명 사용
       contents: prompt,
     });
 
