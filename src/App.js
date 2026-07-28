@@ -239,16 +239,33 @@ function App() {
 
   // AI 코칭 생성 함수 (다시 만들기 기능 지원)
   const generateAiRoutine = async () => {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
-    const variations = [
-      `[AI 맞춤 종목 코칭 결과]\n- 목표: ${bodyInfo.goal} (${bodyInfo.targetPart} 집중)\n\n1. [바벨 벤치 프레스] - 바벨을 이용해 메인 가슴 운동 4세트 (8~10회)\n2. [인클라인 덤벨 프레스] - 덤벨로 상부 가슴 고립 3세트 (12회)\n3. [펙 덱 플라이 머신] - 머신을 활용해 안쪽 수축 3세트 (15회)\n4. [케이블 푸시 다운] - 삼두 보조 운동 3세트\n\n💡 팁: 중량보다는 타겟 근육의 이완과 수축에 집중하세요!`,
-      `[AI 맞춤 종목 코칭 결과 (새로운 버전)]\n- 목표: ${bodyInfo.goal} (${bodyInfo.targetPart} 집중 고강도 루틴)\n\n1. [인클라인 벤치 프레스] - 상부 중심 5세트 (8회)\n2. [딥스] - 맨몸 하부 가슴 타격 4세트\n3. [푸시 업] - 마무리 펌핑 3세트\n\n💡 팁: 세트 간 휴식 시간은 60초를 엄수하세요!`
-    ];
-    const randomRoutine = variations[Math.floor(Math.random() * variations.length)];
-    setAiResponse(randomRoutine);
+  if (!bodyInfo.height || !bodyInfo.weight) {
+    alert('키와 체중을 먼저 입력해주세요!');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyInfo),
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      setAiResponse(data.result);
+    } else {
+      alert(`에러 발생: ${data.error || '알 수 없는 오류'}`);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('서버 통신 중 오류가 발생했습니다.');
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <div className="container" style={{maxWidth: '600px', margin: '0 auto', padding: '15px', background: '#090d16', color: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif'}}>
