@@ -4,7 +4,13 @@ import './App.css';
 function App() {
   const [activeTab, setActiveTab] = useState('routine');
   
-  const [bodyInfo, setBodyInfo] = useState({ height: '', weight: '', age: '', goal: '다이어트' });
+  const [bodyInfo, setBodyInfo] = useState({ 
+    height: '', 
+    weight: '', 
+    age: '', 
+    goal: '다이어트',
+    targetPart: '가슴'
+  });
   const [condition, setCondition] = useState('보통');
   const [feedback, setFeedback] = useState('적당함');
   const [aiResponse, setAiResponse] = useState('');
@@ -103,17 +109,37 @@ function App() {
 
       {activeTab === 'routine' && (
         <form onSubmit={handleRoutineSubmit} className="form-box">
-          <h3>1. 신체 정보 입력</h3>
+          <h3>1. 신체 정보 및 오늘 운동 부위 입력</h3>
           <div className="input-group">
             <input type="number" placeholder="키 (cm)" value={bodyInfo.height} onChange={(e) => setBodyInfo({...bodyInfo, height: e.target.value})} />
             <input type="number" placeholder="체중 (kg)" value={bodyInfo.weight} onChange={(e) => setBodyInfo({...bodyInfo, weight: e.target.value})} />
             <input type="number" placeholder="나이" value={bodyInfo.age} onChange={(e) => setBodyInfo({...bodyInfo, age: e.target.value})} />
           </div>
-          <select value={bodyInfo.goal} onChange={(e) => setBodyInfo({...bodyInfo, goal: e.target.value})}>
-            <option value="다이어트">다이어트</option>
-            <option value="근비대">근비대 (근육 증가)</option>
-            <option value="체형 교정">체형 교정</option>
-          </select>
+          
+          <div className="input-group">
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px'}}>운동 목표</label>
+              <select value={bodyInfo.goal} onChange={(e) => setBodyInfo({...bodyInfo, goal: e.target.value})}>
+                <option value="다이어트">다이어트</option>
+                <option value="근비대">근비대 (근육 증가)</option>
+                <option value="체형 교정">체형 교정</option>
+              </select>
+            </div>
+            
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px'}}>오늘 운동 부위</label>
+              <select value={bodyInfo.targetPart} onChange={(e) => setBodyInfo({...bodyInfo, targetPart: e.target.value})}>
+                <option value="가슴">가슴</option>
+                <option value="등">등</option>
+                <option value="어깨">어깨</option>
+                <option value="삼두">삼두</option>
+                <option value="이두">이두</option>
+                <option value="전완근">전완근</option>
+                <option value="하체">하체</option>
+                <option value="코어">코어</option>
+              </select>
+            </div>
+          </div>
 
           <h3>2. 오늘의 컨디션</h3>
           <select value={condition} onChange={(e) => setCondition(e.target.value)}>
