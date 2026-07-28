@@ -115,12 +115,32 @@ button:hover {
   border-radius: 8px;
 }
 
-/* 캘린더 그리드 스타일 */
+/* 캘린더 스타일 */
+.calendar-header-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.month-nav-btn {
+  background: #334155;
+  color: #f8fafc;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.month-nav-btn:hover {
+  background: #475569;
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
-  margin-top: 10px;
 }
 
 .calendar-day-header {
